@@ -1,0 +1,9 @@
+# 編譯產物
+build/
+riscv-sim
+*.o
+*.out
+
+# 編輯器
+.vscode/
+.DS_Store
