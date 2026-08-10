@@ -31,11 +31,16 @@ target_include_directories(riscv-sim PRIVATE src)
 add_executable(gemm src/main_gemm.cpp ${CORE_SOURCES})
 target_include_directories(gemm PRIVATE src)
 
-# 全指令自動測試
+# 全指令自動測試（RV32IM）
 add_executable(test_all tests/test_all.cpp ${CORE_SOURCES})
 target_include_directories(test_all PRIVATE src)
+
+# RVV 向量指令測試
+add_executable(test_rvv tests/test_rvv.cpp ${CORE_SOURCES})
+target_include_directories(test_rvv PRIVATE src)
 
 # 讓 ctest 能跑測試
 enable_testing()
 add_test(NAME rv32im_all_instructions COMMAND test_all)
 add_test(NAME gemm_correctness        COMMAND gemm 4)
+add_test(NAME rvv_vsetvli              COMMAND test_rvv)

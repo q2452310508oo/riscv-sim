@@ -62,4 +62,25 @@ inline uint32_t sub (uint32_t rd, uint32_t rs1, uint32_t rs2){ return r(OP, 0x0,
 inline uint32_t mul (uint32_t rd, uint32_t rs1, uint32_t rs2){ return r(OP, 0x0, 0x01, rd, rs1, rs2); }
 inline uint32_t ecall() { return 0x00000073u; }
 
+
+// ============================================================
+// RVV（向量擴展）指令編碼。opcode 一律是 0x57。
+// ============================================================
+constexpr uint32_t OP_V = 0x57;
+
+// ---- vtype 立即值的組法 ----
+// vtype[2:0] = vlmul, vtype[5:3] = vsew
+// 這裡提供常數方便閱讀（LMUL=1，SEW 可選）
+constexpr uint32_t VSEW_8  = 0 << 3;
+constexpr uint32_t VSEW_16 = 1 << 3;
+constexpr uint32_t VSEW_32 = 2 << 3;
+constexpr uint32_t VSEW_64 = 3 << 3;
+constexpr uint32_t VLMUL_1 = 0;   // LMUL = 1
+
+// vsetvli rd, rs1, vtype_imm
+//   funct3 = 0x7，bit[31]=0，vtype 放 bits[30:20]
+inline uint32_t vsetvli(uint32_t rd, uint32_t rs1, uint32_t vtype_imm) {
+    return ((vtype_imm & 0x7ff) << 20) | (rs1 << 15) | (0x7 << 12) | (rd << 7) | OP_V;
+}
+
 } // namespace asm_

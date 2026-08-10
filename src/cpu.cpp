@@ -70,6 +70,27 @@ void CPU::run() {
 }
 
 // ------------------------------------------------------------
+// RVV 輔助：從 vtype 解出目前每個元素幾 bytes。
+// vtype 的編碼（RISC-V V 規格）：
+//   bits[5:3] = vsew   000→8bit 001→16bit 010→32bit 011→64bit
+//   bits[2:0] = vlmul  （這裡先只支援 LMUL=1，不影響 vsetvli 主邏輯）
+// ------------------------------------------------------------
+uint32_t CPU::cur_sew_bytes() const {
+    uint32_t vsew = (v_vtype >> 3) & 0x7;
+    return 1u << vsew;   // 0→1, 1→2, 2→4, 3→8（bytes）
+}
+
+// 讀向量暫存器 vreg 的第 e 個 32-bit 元素（little-endian 組回來）
+uint32_t CPU::vread32(uint32_t v, uint32_t e) const {
+    const auto& bytes = vreg[v];
+    uint32_t base = e * 4;
+    return  (uint32_t)bytes[base]
+         | ((uint32_t)bytes[base + 1] << 8)
+         | ((uint32_t)bytes[base + 2] << 16)
+         | ((uint32_t)bytes[base + 3] << 24);
+}
+
+// ------------------------------------------------------------
 // 執行一條指令。
 // 這個大 switch 就是「這條指令到底要做什麼」的核心。
 // 目前實作了 RV32I 常用的整數指令，足以跑迴圈、算術、load/store。
@@ -278,6 +299,49 @@ void CPU::execute(const DecodedInst& d) {
                     std::cerr << "[CPU] 未知的 SYSTEM funct3=" << d.funct3 << "\n";
                     halt = true;
                     break;
+            }
+            break;
+        }
+
+        // ---- RVV：向量指令（opcode 0x57）----
+        case 0x57: {
+            // funct3 = bits[14:12] 決定「向量指令的類別」
+            //   0x7 (OPCFG) = 設定類：vsetvli / vsetvl
+            //   其餘之後 W3/W4 再加（載入用 0x07、運算用 0x0/0x2...）
+            uint32_t f3 = d.funct3;
+            if (f3 == 0x7) {
+                // ---- vsetvli rd, rs1, vtype_imm ----
+                // 語意：
+                //   AVL（application vector length，還想處理幾個）= x[rs1]
+                //   新的 vtype = 指令裡的立即值（bits[30:20]）
+                //   算出這輪能做幾個：vl = min(AVL, VLMAX)
+                //     其中 VLMAX = VLEN / SEW（LMUL=1 時）
+                //   把 vl 寫回 rd，並更新內部 vtype / vl 狀態
+                //
+                // 特例：rs1 == x0 時，表示「我要盡可能長」，AVL 視為極大值，
+                //       所以 vl 直接取 VLMAX。（這是規格規定的慣例）
+
+                uint32_t new_vtype = (d.raw >> 20) & 0x7ff;   // bits[30:20]
+                v_vtype = new_vtype;
+
+                uint32_t sew_bytes = cur_sew_bytes();          // 每元素 bytes
+                uint32_t vlmax = VLENB / sew_bytes;            // 一個 v 暫存器塞得下幾個
+
+                uint32_t avl;
+                if (d.rs1 != 0) {
+                    avl = reg.read(d.rs1);
+                } else if (d.rd != 0) {
+                    avl = 0xFFFFFFFFu;   // rs1==x0 且 rd!=x0：要最長 → 取 VLMAX
+                } else {
+                    avl = v_vl;          // rs1==x0 且 rd==x0：保持原本的 vl（這裡簡化）
+                }
+
+                v_vl = (avl < vlmax) ? avl : vlmax;   // vl = min(AVL, VLMAX)
+                reg.write(d.rd, v_vl);                // 回傳這輪實際長度
+            } else {
+                std::cerr << "[CPU] 尚未實作的 RVV funct3=0x" << std::hex << f3
+                          << std::dec << "（W3/W4 會加）\n";
+                halt = true;
             }
             break;
         }

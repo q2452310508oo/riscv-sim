@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <map>
 #include <string>
+#include <fstream>
 #include "memory.hpp"
 #include "cpu.hpp"
 #include "gemm_scalar.hpp"
@@ -110,5 +111,26 @@ int main(int argc, char** argv) {
         std::cout << "  " << zh[t] << " : " << std::setw(8) << v
                   << "  (" << pct(v) << "%)\n";
     }
+    // ---------------- 寫一行到 results.csv（累積各版本數據）----------------
+    // 欄位：版本, N, 指令數, cycle數, 運算%, 記憶體%, 位址%, 迴圈%
+    {
+        bool need_header = false;
+        std::ifstream probe("results.csv");
+        if (!probe.good()) need_header = true;
+        probe.close();
+
+        std::ofstream csv("results.csv", std::ios::app);
+        if (need_header)
+            csv << "version,N,instret,cycles,math_pct,mem_pct,addr_pct,loop_pct\n";
+
+        auto rp = [&](const char* role) {
+            return 100.0 * (double)by_role[role] / (double)s.total;
+        };
+        csv << "scalar," << N << "," << s.total << "," << s.cycles << ","
+            << rp("math") << "," << rp("mem") << ","
+            << rp("addr") << "," << rp("loop") << "\n";
+        std::cout << "\n（已附加一行到 results.csv）\n";
+    }
+
     return ok ? 0 : 1;
 }
