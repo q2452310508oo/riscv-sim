@@ -83,4 +83,28 @@ inline uint32_t vsetvli(uint32_t rd, uint32_t rs1, uint32_t vtype_imm) {
     return ((vtype_imm & 0x7ff) << 20) | (rs1 << 15) | (0x7 << 12) | (rd << 7) | OP_V;
 }
 
+
+// ---- 向量載入 / 儲存（unit-stride, 32-bit）----
+// vle32.v vd, (rs1)   funct3=0x6
+inline uint32_t vle32(uint32_t vd, uint32_t rs1) {
+    // 高位欄位（nf/mew/mop/vm/lumop）在單純情況都為 0，width=0x6 放 funct3
+    return (rs1 << 15) | (0x6 << 12) | (vd << 7) | OP_V;
+}
+// vse32.v vs3, (rs1)  funct3=0x5  （來源向量放在 vs3=bits[11:7]）
+inline uint32_t vse32(uint32_t vs3, uint32_t rs1) {
+    return (rs1 << 15) | (0x5 << 12) | (vs3 << 7) | OP_V;
+}
+
+// ---- 向量整數運算（OPIVV, funct3=0x0）----
+// 通用：funct6 決定運算；vd=bits[11:7], vs1=bits[19:15], vs2=bits[24:20]
+// vm=1（bit25）表示無遮罩（所有 lane 都算）
+inline uint32_t opivv(uint32_t funct6, uint32_t vd, uint32_t vs2, uint32_t vs1) {
+    return (funct6 << 26) | (1u << 25) | (vs2 << 20) | (vs1 << 15)
+         | (0x0 << 12) | (vd << 7) | OP_V;
+}
+// vadd.vv vd, vs2, vs1   (vd = vs2 + vs1)
+inline uint32_t vadd_vv(uint32_t vd, uint32_t vs2, uint32_t vs1) { return opivv(0x00, vd, vs2, vs1); }
+// vsub.vv vd, vs2, vs1   (vd = vs2 - vs1)
+inline uint32_t vsub_vv(uint32_t vd, uint32_t vs2, uint32_t vs1) { return opivv(0x02, vd, vs2, vs1); }
+
 } // namespace asm_

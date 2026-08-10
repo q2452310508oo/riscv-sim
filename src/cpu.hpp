@@ -60,6 +60,8 @@ public:
 
     // 讀某個向量暫存器的第 e 個 32-bit 元素（測試/除錯用）
     uint32_t vread32(uint32_t vreg, uint32_t e) const;
+    // 寫某個向量暫存器的第 e 個 32-bit 元素（測試/除錯用）
+    void vwrite32(uint32_t vreg, uint32_t e, uint32_t val);
 
 private:
     Memory&    mem;

@@ -39,6 +39,10 @@ target_include_directories(test_all PRIVATE src)
 add_executable(test_rvv tests/test_rvv.cpp ${CORE_SOURCES})
 target_include_directories(test_rvv PRIVATE src)
 
+# 向量加法示範
+add_executable(vdemo src/main_vdemo.cpp ${CORE_SOURCES})
+target_include_directories(vdemo PRIVATE src)
+
 # 讓 ctest 能跑測試
 enable_testing()
 add_test(NAME rv32im_all_instructions COMMAND test_all)

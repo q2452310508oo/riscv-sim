@@ -90,6 +90,16 @@ uint32_t CPU::vread32(uint32_t v, uint32_t e) const {
          | ((uint32_t)bytes[base + 3] << 24);
 }
 
+// 寫向量暫存器 v 的第 e 個 32-bit 元素（拆成 4 bytes，little-endian）
+void CPU::vwrite32(uint32_t v, uint32_t e, uint32_t val) {
+    auto& bytes = vreg[v];
+    uint32_t base = e * 4;
+    bytes[base]     = (uint8_t)(val & 0xff);
+    bytes[base + 1] = (uint8_t)((val >> 8) & 0xff);
+    bytes[base + 2] = (uint8_t)((val >> 16) & 0xff);
+    bytes[base + 3] = (uint8_t)((val >> 24) & 0xff);
+}
+
 // ------------------------------------------------------------
 // 執行一條指令。
 // 這個大 switch 就是「這條指令到底要做什麼」的核心。
@@ -338,9 +348,53 @@ void CPU::execute(const DecodedInst& d) {
 
                 v_vl = (avl < vlmax) ? avl : vlmax;   // vl = min(AVL, VLMAX)
                 reg.write(d.rd, v_vl);                // 回傳這輪實際長度
+            } else if (f3 == 0x6) {
+                // ---- 向量載入 vle32.v vd, (rs1) ----
+                //   從記憶體位址 x[rs1] 開始，連續讀 vl 個 32-bit 值放進 vd。
+                //   .v = unit-stride（連續存取）。位址沒有立即值偏移。
+                //   funct3=0x6 是 RVV 載入類（width=32 由 mem-op 欄位決定，
+                //   這裡簡化：只支援 32-bit，對應 vle32.v）。
+                uint32_t addr = reg.read(d.rs1);
+                for (uint32_t e = 0; e < v_vl; ++e) {
+                    uint32_t word = mem.load32(addr + e * 4);
+                    vwrite32(d.rd, e, word);   // d.rd 這裡當 vd
+                }
+            } else if (f3 == 0x5) {
+                // ---- 向量儲存 vse32.v vs3, (rs1) ----
+                //   把 vs3 的 vl 個元素連續寫回記憶體位址 x[rs1]。
+                //   注意：store 的「來源向量」放在 rd 欄位（RVV 規定 vs3=bits[11:7]）。
+                uint32_t addr = reg.read(d.rs1);
+                for (uint32_t e = 0; e < v_vl; ++e) {
+                    uint32_t word = vread32(d.rd, e);   // d.rd 這裡當 vs3
+                    mem.store32(addr + e * 4, word);
+                }
+            } else if (f3 == 0x0) {
+                // ---- 向量整數運算（OPIVV，funct3=0x0）----
+                //   由 funct6 = bits[31:26] 決定是哪個運算。
+                //   vd = bits[11:7], vs1 = bits[19:15], vs2 = bits[24:20]
+                //   語意（vv 形式）：vd[e] = vs2[e]  OP  vs1[e]，逐 lane 進行。
+                uint32_t funct6 = (d.raw >> 26) & 0x3f;
+                uint32_t vs1 = d.rs1;   // bits[19:15]
+                uint32_t vs2 = d.rs2;   // bits[24:20]
+                uint32_t vd  = d.rd;    // bits[11:7]
+                switch (funct6) {
+                    case 0x00: // vadd.vv
+                        for (uint32_t e = 0; e < v_vl; ++e)
+                            vwrite32(vd, e, vread32(vs2, e) + vread32(vs1, e));
+                        break;
+                    case 0x02: // vsub.vv
+                        for (uint32_t e = 0; e < v_vl; ++e)
+                            vwrite32(vd, e, vread32(vs2, e) - vread32(vs1, e));
+                        break;
+                    default:
+                        std::cerr << "[CPU] 尚未實作的 OPIVV funct6=0x"
+                                  << std::hex << funct6 << std::dec << "\n";
+                        halt = true;
+                        break;
+                }
             } else {
                 std::cerr << "[CPU] 尚未實作的 RVV funct3=0x" << std::hex << f3
-                          << std::dec << "（W3/W4 會加）\n";
+                          << std::dec << "（W4 會加更多）\n";
                 halt = true;
             }
             break;
