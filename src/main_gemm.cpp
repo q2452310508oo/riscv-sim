@@ -9,6 +9,7 @@
 #include "memory.hpp"
 #include "cpu.hpp"
 #include "gemm_scalar.hpp"
+#include "gemm_vector.hpp"
 
 // 把矩陣寫進模擬器的記憶體
 static void put_matrix(Memory& mem, uint32_t base, const std::vector<int32_t>& m) {
@@ -47,7 +48,8 @@ static void print_matrix(const char* name, const std::vector<int32_t>& m, uint32
 }
 
 int main(int argc, char** argv) {
-    const uint32_t N = (argc > 1) ? (uint32_t)std::atoi(argv[1]) : 4;
+    const uint32_t N   = (argc > 1) ? (uint32_t)std::atoi(argv[1]) : 4;
+    const std::string ver = (argc > 2) ? argv[2] : "scalar";
 
     // 準備測試資料：A[i][j] = i+j+1，B 是「轉置遞增」，隨便但不對稱，比較容易抓出索引寫反的 bug
     std::vector<int32_t> A(N*N), B(N*N);
@@ -58,7 +60,7 @@ int main(int argc, char** argv) {
         }
 
     Memory mem(64 * 1024);
-    auto kern = gemm::scalar(N);
+    gemm::Kernel kern = (ver == "vector") ? gemm::vector(N) : gemm::scalar(N);
     mem.load_program(kern.code, 0);
     put_matrix(mem, gemm::A_BASE, A);
     put_matrix(mem, gemm::B_BASE, B);
@@ -126,7 +128,7 @@ int main(int argc, char** argv) {
         auto rp = [&](const char* role) {
             return 100.0 * (double)by_role[role] / (double)s.total;
         };
-        csv << "scalar," << N << "," << s.total << "," << s.cycles << ","
+        csv << ver << "," << N << "," << s.total << "," << s.cycles << ","
             << rp("math") << "," << rp("mem") << ","
             << rp("addr") << "," << rp("loop") << "\n";
         std::cout << "\n（已附加一行到 results.csv）\n";

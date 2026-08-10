@@ -107,4 +107,12 @@ inline uint32_t vadd_vv(uint32_t vd, uint32_t vs2, uint32_t vs1) { return opivv(
 // vsub.vv vd, vs2, vs1   (vd = vs2 - vs1)
 inline uint32_t vsub_vv(uint32_t vd, uint32_t vs2, uint32_t vs1) { return opivv(0x02, vd, vs2, vs1); }
 
+
+// ---- 向量-純量乘加 vmacc.vx vd, rs1, vs2  (vd += x[rs1] * vs2) ----
+// funct3=0x4 (OPIVX 空間), funct6=0x2d, vm=1
+inline uint32_t vmacc_vx(uint32_t vd, uint32_t rs1, uint32_t vs2) {
+    return (0x2d << 26) | (1u << 25) | (vs2 << 20) | (rs1 << 15)
+         | (0x4 << 12) | (vd << 7) | OP_V;
+}
+
 } // namespace asm_

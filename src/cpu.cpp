@@ -368,6 +368,25 @@ void CPU::execute(const DecodedInst& d) {
                     uint32_t word = vread32(d.rd, e);   // d.rd 這裡當 vs3
                     mem.store32(addr + e * 4, word);
                 }
+            } else if (f3 == 0x4) {
+                // ---- 向量-純量乘加 vmacc.vx vd, rs1(純量), vs2 ----
+                //   funct6=0x2d（依 RVV 慣例）。
+                //   語意：vd[e] = vd[e] + x[rs1] * vs2[e]，逐 lane。
+                //   純量 x[rs1] 廣播到每個 lane，這是 GEMM 向量化的核心指令。
+                uint32_t funct6 = (d.raw >> 26) & 0x3f;
+                if (funct6 == 0x2d) {
+                    uint32_t vs2 = d.rs2;
+                    uint32_t vd  = d.rd;
+                    uint32_t scalar = reg.read(d.rs1);
+                    for (uint32_t e = 0; e < v_vl; ++e) {
+                        uint32_t prod = scalar * vread32(vs2, e);
+                        vwrite32(vd, e, vread32(vd, e) + prod);
+                    }
+                } else {
+                    std::cerr << "[CPU] 尚未實作的 OPIVX funct6=0x"
+                              << std::hex << funct6 << std::dec << "\n";
+                    halt = true;
+                }
             } else if (f3 == 0x0) {
                 // ---- 向量整數運算（OPIVV，funct3=0x0）----
                 //   由 funct6 = bits[31:26] 決定是哪個運算。
