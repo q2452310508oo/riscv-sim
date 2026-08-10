@@ -49,8 +49,17 @@ void CPU::count(const DecodedInst& d) {
             st.upper++;  st.cycles += 1; break;
         case 0x0f: case 0x73:            // FENCE / SYSTEM
             st.sys++;    st.cycles += 1; break;
-        case 0x57:                       // RVV（W2 之後實作）
-            st.vec++;    st.cycles += 2; break;
+        case 0x57: {                     // RVV：依指令類別給不同 cycle
+            st.vec++;
+            uint32_t f3 = d.funct3;
+            if      (f3 == 0x7) st.cycles += 1;   // vsetvli：只設定狀態，很快
+            else if (f3 == 0x6) st.cycles += 3;   // vle32.v：向量載入（碰記憶體）
+            else if (f3 == 0x5) st.cycles += 3;   // vse32.v：向量儲存
+            else if (f3 == 0x4) st.cycles += 4;   // vmacc.vx：向量乘加（最貴）
+            else if (f3 == 0x0) st.cycles += 2;   // vadd/vsub.vv：向量加減
+            else                st.cycles += 2;   // 其他向量運算
+            break;
+        }
         case 0x0b:                       // custom-0（W6 之後實作）
             st.custom++; st.cycles += 2; break;
         default:
