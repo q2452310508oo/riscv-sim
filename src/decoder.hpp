@@ -16,5 +16,4 @@ struct DecodedInst {
     int32_t  imm    = 0;  // 立即值（已依指令格式做好符號延伸）
 };
 
-// 把一個 32-bit 原始指令拆解成 DecodedInst
 DecodedInst decode(uint32_t raw);

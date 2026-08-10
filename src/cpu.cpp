@@ -2,20 +2,67 @@
 #include <iostream>
 
 CPU::CPU(Memory& mem_)
-    : mem(mem_), pc(0), halt(false), inst_count(0) {}
+    : mem(mem_), pc(0), halt(false) {}
 
 // 抓一條指令 -> 解碼 -> 執行
 void CPU::step() {
     uint32_t raw = mem.load32(pc);
     DecodedInst d = decode(raw);
+
+    // 記錄這個位址被執行過幾次（熱點分析用）
+    std::size_t slot = pc / 4;
+    if (slot >= hits.size()) hits.resize(slot + 1, 0);
+    hits[slot]++;
+
+    count(d);      // 先統計（此時 pc 還沒被改掉）
     execute(d);
+}
+
+// ------------------------------------------------------------
+// 指令分類 + cycle 模型。
+//
+// 【重要】這裡的 cycle 數是「假設值」，不是真實硬體量測。
+// 寫報告時務必註明這是簡化模型。參數依據：
+//   - 單週期 ALU：算術、邏輯、分支 = 1
+//   - 乘法器需要多級：mul = 3
+//   - 除法器很慢（逐位元運算）：div/rem = 20
+//   - 記憶體存取（假設 cache 命中）：load/store = 2
+// ------------------------------------------------------------
+void CPU::count(const DecodedInst& d) {
+    st.total++;
+    switch (d.opcode) {
+        case 0x13:                       // OP-IMM
+            st.alu++;    st.cycles += 1; break;
+        case 0x33:                       // OP（含 RV32M）
+            if (d.funct7 == 0x01) {
+                st.muldiv++;
+                st.cycles += (d.funct3 >= 0x4) ? 20 : 3;   // div/rem 慢，mul 較快
+            } else {
+                st.alu++;  st.cycles += 1;
+            }
+            break;
+        case 0x03: case 0x23:            // LOAD / STORE
+            st.mem++;    st.cycles += 2; break;
+        case 0x63: case 0x6f: case 0x67: // BRANCH / JAL / JALR
+            st.ctrl++;   st.cycles += 1; break;
+        case 0x37: case 0x17:            // LUI / AUIPC
+            st.upper++;  st.cycles += 1; break;
+        case 0x0f: case 0x73:            // FENCE / SYSTEM
+            st.sys++;    st.cycles += 1; break;
+        case 0x57:                       // RVV（W2 之後實作）
+            st.vec++;    st.cycles += 2; break;
+        case 0x0b:                       // custom-0（W6 之後實作）
+            st.custom++; st.cycles += 2; break;
+        default:
+            st.cycles += 1; break;
+    }
 }
 
 void CPU::run() {
     while (!halt) {
         step();
         // 安全閥：避免無窮迴圈把程式卡死
-        if (inst_count > 10'000'000) {
+        if (st.total > 10'000'000) {
             std::cerr << "[CPU] 指令數過多，強制停止（可能是無窮迴圈）\n";
             break;
         }
@@ -57,6 +104,29 @@ void CPU::execute(const DecodedInst& d) {
         case 0x33: {
             uint32_t a = reg.read(d.rs1);
             uint32_t b = reg.read(d.rs2);
+        // ---- RV32M：乘除法（funct7 = 0x01）----
+        if (d.funct7 == 0x01) {
+            uint32_t res = 0;
+            int32_t sa = (int32_t)a, sb = (int32_t)b;
+            switch (d.funct3) {
+                case 0x0: res = a * b; break;                                                  // mul
+                case 0x1: res = (uint32_t)(((int64_t)sa * (int64_t)sb) >> 32); break;          // mulh
+                case 0x2: res = (uint32_t)(((int64_t)sa * (int64_t)(uint64_t)b) >> 32); break; // mulhsu
+                case 0x3: res = (uint32_t)(((uint64_t)a * (uint64_t)b) >> 32); break;          // mulhu
+                case 0x4: res = (sb == 0) ? 0xFFFFFFFFu                                        // div
+                              : (sa == INT32_MIN && sb == -1) ? (uint32_t)sa
+                              : (uint32_t)(sa / sb); break;
+                case 0x5: res = (b == 0) ? 0xFFFFFFFFu : (a / b); break;                       // divu
+                case 0x6: res = (sb == 0) ? a                                                  // rem
+                              : (sa == INT32_MIN && sb == -1) ? 0
+                              : (uint32_t)(sa % sb); break;
+                case 0x7: res = (b == 0) ? a : (a % b); break;                                 // remu
+            }
+            reg.write(d.rd, res);
+            break;
+        }
+
+            // ---- 基本 R-type：add / sub / sll / slt / ... ----
             uint32_t res = 0;
             switch (d.funct3) {
                 case 0x0: res = (d.funct7 == 0x20) ? (a - b) : (a + b); break;   // sub / add
@@ -220,5 +290,4 @@ void CPU::execute(const DecodedInst& d) {
     }
 
     pc = next_pc;
-    inst_count++;
 }

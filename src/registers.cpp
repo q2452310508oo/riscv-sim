@@ -13,14 +13,12 @@ static const char* kAbiName[32] = {
 Registers::Registers() { x.fill(0); }
 
 uint32_t Registers::read(uint32_t idx) const {
-    // x0 永遠讀出 0
-    if (idx == 0) return 0;
+    if (idx == 0) return 0;   // x0 永遠讀出 0
     return x[idx];
 }
 
 void Registers::write(uint32_t idx, uint32_t val) {
-    // 寫 x0 沒有效果
-    if (idx == 0) return;
+    if (idx == 0) return;     // 寫 x0 沒有效果
     x[idx] = val;
 }
 

@@ -1,9 +1,19 @@
 # 編譯產物
 build/
 riscv-sim
+gemm
+test_all
 *.o
 *.out
+
+# 腳本
+build.sh
+
+# Windows 下載標記
+*Zone.Identifier
+*:Zone.Identifier
 
 # 編輯器
 .vscode/
 .DS_Store
+githubtoken.txt

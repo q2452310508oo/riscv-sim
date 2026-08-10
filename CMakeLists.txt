@@ -13,7 +13,7 @@ if(NOT MSVC)
     add_compile_options(-Wall -Wextra)
 endif()
 
-# 共用的模組原始碼（核心邏輯，不含 main）
+# 共用的模組原始碼（核心邏輯，不含任何 main）
 set(CORE_SOURCES
     src/cpu.cpp
     src/memory.cpp
@@ -21,14 +21,21 @@ set(CORE_SOURCES
     src/decoder.cpp
 )
 
-# 主程式：示範程式
+# ---- 三個執行檔，全都共用 CORE_SOURCES ----
+
+# 示範程式：計算 1+2+3+4+5
 add_executable(riscv-sim src/main.cpp ${CORE_SOURCES})
 target_include_directories(riscv-sim PRIVATE src)
 
-# 測試程式：47 條指令自動測試
+# GEMM：矩陣乘法 + 效能統計（純量基準線）
+add_executable(gemm src/main_gemm.cpp ${CORE_SOURCES})
+target_include_directories(gemm PRIVATE src)
+
+# 全指令自動測試
 add_executable(test_all tests/test_all.cpp ${CORE_SOURCES})
 target_include_directories(test_all PRIVATE src)
 
-# 讓 `ctest` 或 `cmake --build build --target run_tests` 能跑測試
+# 讓 ctest 能跑測試
 enable_testing()
-add_test(NAME rv32i_all_instructions COMMAND test_all)
+add_test(NAME rv32im_all_instructions COMMAND test_all)
+add_test(NAME gemm_correctness        COMMAND gemm 4)

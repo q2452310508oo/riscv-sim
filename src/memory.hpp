@@ -11,17 +11,14 @@ class Memory {
 public:
     explicit Memory(std::size_t size_bytes);
 
-    // 讀取
     uint8_t  load8(uint32_t addr) const;
     uint16_t load16(uint32_t addr) const;
     uint32_t load32(uint32_t addr) const;
 
-    // 寫入
     void store8(uint32_t addr, uint8_t val);
     void store16(uint32_t addr, uint16_t val);
     void store32(uint32_t addr, uint32_t val);
 
-    // 把一段程式（一連串 32-bit 指令）載入到指定起始位址
     void load_program(const std::vector<uint32_t>& words, uint32_t start_addr = 0);
 
     std::size_t size() const { return mem.size(); }
