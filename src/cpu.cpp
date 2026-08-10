@@ -60,8 +60,17 @@ void CPU::count(const DecodedInst& d) {
             else                st.cycles += 2;   // 其他向量運算
             break;
         }
-        case 0x0b:                       // custom-0（W6 之後實作）
-            st.custom++; st.cycles += 2; break;
+        case 0x0b: {                     // custom-0：誠實計價
+            st.custom++;
+            switch (d.funct3) {
+                case 0x0: st.cycles += 1; break;  // setstride：只設暫存器
+                case 0x1: st.cycles += 5; break;  // vlmacc.pi：載入(3)+乘加(4)融合，
+                                                  //   省掉發出與位址開銷 → 5（非 3+4=7）
+                case 0x2: st.cycles += 2; break;  // laddi.pi：載入(2)+遞增融合 → 2
+                default:  st.cycles += 2; break;
+            }
+            break;
+        }
         default:
             st.cycles += 1; break;
     }
@@ -316,6 +325,52 @@ void CPU::execute(const DecodedInst& d) {
                 }
                 default:
                     std::cerr << "[CPU] 未知的 SYSTEM funct3=" << d.funct3 << "\n";
+                    halt = true;
+                    break;
+            }
+            break;
+        }
+
+        // ---- 自訂指令 custom-0（opcode 0x0b）----
+        // 用 funct3 區分不同自訂指令。這是本專題的原創貢獻，
+        // 目標是攻擊 RVV 沒有解決的「位址計算」開銷。
+        case 0x0b: {
+            switch (d.funct3) {
+                case 0x0: {
+                    // ---- setstride rs1 ----
+                    // 設定 post-increment 的跨距 = x[rs1]（單位：byte）。
+                    // GEMM 用法：設成 N*4，讓 B 指標每次自動跳一整列。
+                    v_stride = reg.read(d.rs1);
+                    break;
+                }
+                case 0x1: {
+                    // ---- vlmacc.pi vd, (rs1), rs2 ----
+                    //   融合三件事（這是 ① 號自訂指令）：
+                    //     1. 從位址 x[rs1] 載入 vl 個元素（等同 vle32）
+                    //     2. 乘上純量 x[rs2]，累加進 vd（等同 vmacc.vx）
+                    //     3. x[rs1] 自動 += v_stride（post-increment，省掉位址計算）
+                    uint32_t addr   = reg.read(d.rs1);
+                    uint32_t scalar = reg.read(d.rs2);
+                    uint32_t vd     = d.rd;
+                    for (uint32_t e = 0; e < v_vl; ++e) {
+                        uint32_t b = mem.load32(addr + e * 4);
+                        vwrite32(vd, e, vread32(vd, e) + scalar * b);
+                    }
+                    reg.write(d.rs1, addr + v_stride);   // 指標自動前進
+                    break;
+                }
+                case 0x2: {
+                    // ---- laddi.pi rd, (rs1) ----
+                    //   融合兩件事（這是 ② 號自訂指令）：
+                    //     1. 從位址 x[rs1] 載入一個純量到 rd（等同 lw）
+                    //     2. x[rs1] 自動 += 4（指向下一個元素）
+                    uint32_t addr = reg.read(d.rs1);
+                    reg.write(d.rd, mem.load32(addr));
+                    reg.write(d.rs1, addr + 4);
+                    break;
+                }
+                default:
+                    std::cerr << "[CPU] 未知的 custom-0 funct3=" << d.funct3 << "\n";
                     halt = true;
                     break;
             }

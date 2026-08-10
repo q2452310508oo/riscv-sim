@@ -57,6 +57,7 @@ public:
 
     uint32_t vl()    const { return v_vl; }        // 這輪處理幾個元素
     uint32_t vtype() const { return v_vtype; }     // SEW / LMUL 編碼
+    uint32_t stride() const { return v_stride; }   // 自訂指令的跨距
 
     // 讀某個向量暫存器的第 e 個 32-bit 元素（測試/除錯用）
     uint32_t vread32(uint32_t vreg, uint32_t e) const;
@@ -77,6 +78,7 @@ private:
     // 要當 32-bit 元素用時再重新解讀。這樣 SEW 改變時最有彈性。
     std::array<std::array<uint8_t, VLENB>, 32> vreg{};
     uint32_t v_vl    = 0;   // vector length：這輪實際處理幾個元素
+    uint32_t v_stride = 4;  // 自訂指令用：post-increment 的位元組跨距（預設一個元素）
     uint32_t v_vtype = 0;   // vtype：編碼了 SEW 與 LMUL
 
     // 從 vtype 解出目前的 SEW（每個元素幾 bytes）

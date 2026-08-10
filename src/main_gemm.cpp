@@ -10,6 +10,7 @@
 #include "cpu.hpp"
 #include "gemm_scalar.hpp"
 #include "gemm_vector.hpp"
+#include "gemm_custom.hpp"
 
 // 把矩陣寫進模擬器的記憶體
 static void put_matrix(Memory& mem, uint32_t base, const std::vector<int32_t>& m) {
@@ -60,7 +61,9 @@ int main(int argc, char** argv) {
         }
 
     Memory mem(64 * 1024);
-    gemm::Kernel kern = (ver == "vector") ? gemm::vector(N) : gemm::scalar(N);
+    gemm::Kernel kern = (ver == "custom") ? gemm::custom(N)
+                      : (ver == "vector") ? gemm::vector(N)
+                      : gemm::scalar(N);
     mem.load_program(kern.code, 0);
     put_matrix(mem, gemm::A_BASE, A);
     put_matrix(mem, gemm::B_BASE, B);

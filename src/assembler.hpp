@@ -115,4 +115,24 @@ inline uint32_t vmacc_vx(uint32_t vd, uint32_t rs1, uint32_t vs2) {
          | (0x4 << 12) | (vd << 7) | OP_V;
 }
 
+
+// ============================================================
+// 自訂指令 custom-0（opcode 0x0b）。本專題的原創貢獻。
+// 用 funct3 區分，格式借用 R-type 欄位。
+// ============================================================
+constexpr uint32_t OP_CUSTOM0 = 0x0b;
+
+// setstride rs1 —— 設定 post-increment 跨距 = x[rs1]（byte）
+inline uint32_t setstride(uint32_t rs1) {
+    return (rs1 << 15) | (0x0 << 12) | OP_CUSTOM0;
+}
+// vlmacc.pi vd, rs1, rs2 —— vd += x[rs2] * mem[rs1..]，且 rs1 += stride
+inline uint32_t vlmacc_pi(uint32_t vd, uint32_t rs1, uint32_t rs2) {
+    return (rs2 << 20) | (rs1 << 15) | (0x1 << 12) | (vd << 7) | OP_CUSTOM0;
+}
+// laddi.pi rd, rs1 —— rd = mem[rs1]，且 rs1 += 4
+inline uint32_t laddi_pi(uint32_t rd, uint32_t rs1) {
+    return (rs1 << 15) | (0x2 << 12) | (rd << 7) | OP_CUSTOM0;
+}
+
 } // namespace asm_
