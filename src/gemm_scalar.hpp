@@ -22,6 +22,15 @@
 //   x7=A元素  x8=B元素  x9=乘積
 //   x10=A基底  x11=B基底  x12=C基底
 // ============================================================
+// GEMM 產生器用的 VLEN（要跟 CPU 的 VLEN 一致）。
+// 掃描實驗時用 -DVLEN_BITS=256 同時覆蓋 CPU 和這裡。
+#ifndef VLEN_BITS
+#define VLEN_BITS 128
+#endif
+#ifndef GEMM_VLEN
+#define GEMM_VLEN VLEN_BITS
+#endif
+
 namespace gemm {
 
 constexpr uint32_t A_BASE = 0x1000;

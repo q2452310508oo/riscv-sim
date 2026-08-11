@@ -52,8 +52,12 @@ public:
     // --------------------------------------------------------
     // VLEN：每個向量暫存器的位元寬度。這是硬體的固定參數，
     //       之後要做「向量寬度 vs 效能」的實驗，就掃描這個值。
-    static constexpr uint32_t VLEN  = 128;         // 128 bits
-    static constexpr uint32_t VLENB = VLEN / 8;    // = 16 bytes
+    // VLEN 可在編譯時用 -DVLEN_BITS=256 覆蓋，用來做「向量寬度掃描」實驗。
+#ifndef VLEN_BITS
+#define VLEN_BITS 128
+#endif
+    static constexpr uint32_t VLEN  = VLEN_BITS;   // 預設 128 bits
+    static constexpr uint32_t VLENB = VLEN / 8;    // bytes
 
     uint32_t vl()    const { return v_vl; }        // 這輪處理幾個元素
     uint32_t vtype() const { return v_vtype; }     // SEW / LMUL 編碼

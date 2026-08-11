@@ -82,3 +82,36 @@ print("已產生：")
 for f in ["fig1_instret","fig2_speedup","fig3_mix"]:
     if os.path.exists(f"docs/{f}.png"): print(f"  docs/{f}.png")
 print("中文字型：" + ("可用" if zh_ok else "不可用（改用英文標題，不影響數據）"))
+
+# ============================================================
+# 圖4：VLEN 掃描（需要 results_vlen.csv）
+# 展示「同一份程式，向量寬度加倍 → 效能加倍」的長度無關特性
+# ============================================================
+import os
+if os.path.exists("results_vlen.csv"):
+    vrows = list(csv.DictReader(open("results_vlen.csv")))
+    # 整理成 vdata[version][N][vlen] = cycles
+    vdata = {}
+    for r in vrows:
+        if not r["cycles"]: continue
+        vdata.setdefault(r["version"], {}).setdefault(int(r["N"]), {})[int(r["vlen"])] = int(r["cycles"])
+
+    plt.figure(figsize=(7,5))
+    Nplot = 32
+    vlens = [128, 256, 512]
+    for ver, col, mk in [("vector","#1D9E75","o-"), ("custom","#534AB7","s-")]:
+        if ver in vdata and Nplot in vdata[ver]:
+            base = vdata[ver][Nplot][128]
+            ys = [base / vdata[ver][Nplot][vl] for vl in vlens]  # 相對 128 的加速
+            plt.plot(vlens, ys, mk, color=col,
+                     label=(label_zh[ver] if zh_ok else ver))
+    # 理想線（VLEN 加倍→加速加倍）
+    ideal = [1, 2, 4]
+    plt.plot(vlens, ideal, "k--", alpha=0.4, label=T("理想線性","ideal linear"))
+    plt.xlabel("VLEN (bits)")
+    plt.ylabel(T("cycle 加速（相對 VLEN=128）","Speedup vs VLEN=128"))
+    plt.title(T(f"向量寬度掃描（N={Nplot}）",f"VLEN scan (N={Nplot})"))
+    plt.xscale("log", base=2); plt.xticks(vlens,[str(v) for v in vlens])
+    plt.grid(True, which="both", alpha=0.3); plt.legend()
+    plt.tight_layout(); plt.savefig("docs/fig4_vlen.png", dpi=150); plt.close()
+    print("  docs/fig4_vlen.png")

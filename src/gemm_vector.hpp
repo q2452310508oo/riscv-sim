@@ -34,7 +34,7 @@ namespace gemm {
 inline Kernel vector(uint32_t N) {
     using namespace asm_;
     Prog p;
-    uint32_t VL = 4;   // VLEN/32 = 128/32
+    uint32_t VL = GEMM_VLEN / 32;   // 由 VLEN 決定，一次處理幾個 int32
 
     p.emit(u(LUI, 10, A_BASE >> 12), "setup");   // x10 = A
     p.emit(u(LUI, 11, B_BASE >> 12), "setup");   // x11 = B

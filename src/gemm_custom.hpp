@@ -26,7 +26,7 @@ namespace gemm {
 inline Kernel custom(uint32_t N) {
     using namespace asm_;
     Prog p;
-    uint32_t VL = 4;
+    uint32_t VL = GEMM_VLEN / 32;
 
     p.emit(u(LUI, 10, A_BASE >> 12), "setup");
     p.emit(u(LUI, 11, B_BASE >> 12), "setup");
