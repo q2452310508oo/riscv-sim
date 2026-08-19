@@ -63,10 +63,10 @@ void CPU::count(const DecodedInst& d) {
         case 0x0b: {                     // custom-0：誠實計價
             st.custom++;
             switch (d.funct3) {
-                case 0x0: st.cycles += 1; break;  // setstride：只設暫存器
-                case 0x1: st.cycles += 5; break;  // vlmacc.pi：載入(3)+乘加(4)融合，
-                                                  //   省掉發出與位址開銷 → 5（非 3+4=7）
-                case 0x2: st.cycles += 2; break;  // laddi.pi：載入(2)+遞增融合 → 2
+                case 0x0: st.cycles += 1; break;  // setstride：只設一個暫存器
+                case 0x1: st.cycles += 7; break;  // vlmacc.pi = 向量載入(3) + 向量乘加(4)
+                                                  //   實際工作全保留；省的是原本 4 條位址計算指令
+                case 0x2: st.cycles += 3; break;  // laddi.pi  = 純量載入(2) + 指標遞增(1)
                 default:  st.cycles += 2; break;
             }
             break;
